@@ -12,9 +12,11 @@
         body { font-family: 'Noto Serif SC', serif; background-color: #FEFDF8; color: #3c4043; }
         .mocha-pink { background-color: #F8CCDB; }
         .mocha-gray { color: #9FA2A6; }
-        .mocha-mint { background-color: #DFE3E2; }
-        /* 针对宋体优化的大气排版 */
-        h1, h2, .font-serif { font-family: 'Noto Serif SC', serif; letter-spacing: 0.05em; }
+        .font-serif { font-family: 'Noto Serif SC', serif; letter-spacing: 0.05em; }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #DFE3E2; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #F8CCDB; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden" id="app">
@@ -55,7 +57,7 @@
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
-                <div v-for="item in filteredInspirations" :key="item.id" class="group cursor-pointer">
+                <div v-for="item in filteredInspirations" :key="item.id" class="group cursor-pointer" @click="viewDetails(item)">
                     <div class="aspect-[4/3] overflow-hidden rounded-lg mb-4 shadow-sm group-hover:shadow-xl transition-all">
                         <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
                     </div>
@@ -65,146 +67,5 @@
             </div>
         </div>
 
-        <div v-if="showUploadModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-            <div class="bg-white w-[550px] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-                <div class="flex justify-between items-center px-8 py-6 border-b border-gray-50">
-                    <h2 class="text-xl font-serif">新增记录 <span class="text-[10px] mocha-gray ml-2 uppercase font-sans">Add Entry</span></h2>
-                    <button @click="closeModal" class="text-gray-300 hover:text-gray-600 text-2xl transition-colors">✕</button>
-                </div>
-                
-                <div class="p-8 space-y-6">
-                    <div @click="$refs.fileInput.click()" class="border-2 border-dashed border-[#DFE3E2] bg-[#FEFDF8] h-48 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[#F8CCDB] transition-colors group">
-                        <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept="image/*">
-                        <div v-if="!selectedFile" class="text-center">
-                            <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">☁️</div>
-                            <p class="text-xs mocha-gray">点击上传图片 / Click to upload</p>
-                        </div>
-                        <div v-else class="text-center px-4">
-                            <p class="text-xs text-[#F8CCDB] font-bold truncate">{{ selectedFile.name }}</p>
-                            <p class="text-[10px] mocha-gray mt-1">点击可更换图片</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] mocha-gray block mb-1">标题 TITLE</label>
-                            <input v-model="formData.title" type="text" class="w-full outline-none text-sm font-serif">
-                        </div>
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] mocha-gray block mb-1">提示词内容 PROMPTS</label>
-                            <textarea v-model="formData.prompts" rows="3" class="w-full outline-none text-sm resize-none"></textarea>
-                        </div>
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] mocha-gray block mb-1">标签 TAGS</label>
-                            <input v-model="formData.tags" type="text" placeholder="用逗号分隔..." class="w-full outline-none text-sm">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="px-8 py-6 bg-gray-50 flex justify-end items-center gap-6">
-                    <button @click="closeModal" class="text-xs mocha-gray hover:text-gray-800 transition-colors">取消 CANCEL</button>
-                    <button @click="uploadAndSave" :disabled="isUploading" class="mocha-pink px-10 py-3 rounded-full text-sm font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all">
-                        {{ isUploading ? '保存中...' : '保存记录 SAVE' }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <script>
-        // ================= 🔑 密钥已自动填入 =================
-        const SUPABASE_URL = 'https://nmjbxokiljbhmzwpwqxe.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_1ajuVZe4-fpjmIW_ShceWQ__yVdj6aN';
-        const IMGBB_KEY = '445eddb50c646ffdca04c354c185bbc9';
-        // ==========================================================
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        Vue.createApp({
-            data() {
-                return {
-                    categories: [],
-                    currentCategoryId: null,
-                    inspirations: [],
-                    isAddingCategory: false,
-                    newCategoryName: '',
-                    searchQuery: '',
-                    showUploadModal: false,
-                    selectedFile: null,
-                    isUploading: false,
-                    formData: { title: '', prompts: '', tags: '' }
-                }
-            },
-            computed: {
-                filteredInspirations() {
-                    let items = this.inspirations.filter(i => i.category_id === this.currentCategoryId);
-                    if (this.searchQuery) {
-                        const q = this.searchQuery.toLowerCase();
-                        items = items.filter(i => (i.title && i.title.toLowerCase().includes(q)) || (i.prompts && i.prompts.toLowerCase().includes(q)));
-                    }
-                    return items;
-                }
-            },
-            async mounted() {
-                await this.fetchCategories();
-                await this.fetchInspirations();
-            },
-            methods: {
-                async fetchCategories() {
-                    const { data } = await supabaseClient.from('categories').select('*').order('id');
-                    if (data) {
-                        this.categories = data;
-                        if (!this.currentCategoryId && data.length > 0) this.currentCategoryId = data[0].id;
-                    }
-                },
-                async fetchInspirations() {
-                    const { data } = await supabaseClient.from('inspirations').select('*').order('created_at', { ascending: false });
-                    if (data) this.inspirations = data;
-                },
-                async addCategory() {
-                    if (!this.newCategoryName.trim()) return;
-                    const { data, error } = await supabaseClient.from('categories').insert([{ name: this.newCategoryName }]).select();
-                    if (error) alert("分类添加失败: " + error.message);
-                    else {
-                        this.categories.push(data[0]);
-                        this.newCategoryName = '';
-                        this.isAddingCategory = false;
-                        this.currentCategoryId = data[0].id;
-                    }
-                },
-                handleFileSelect(e) { this.selectedFile = e.target.files[0]; },
-                closeModal() {
-                    this.showUploadModal = false;
-                    this.selectedFile = null;
-                    this.formData = { title: '', prompts: '', tags: '' };
-                },
-                async uploadAndSave() {
-                    if (!this.selectedFile) return alert("请先上传一张图片哦！");
-                    this.isUploading = true;
-                    try {
-                        const body = new FormData();
-                        body.append('image', this.selectedFile);
-                        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body });
-                        const imgRes = await res.json();
-                        
-                        if (imgRes.success) {
-                            const { error } = await supabaseClient.from('inspirations').insert([{
-                                category_id: this.currentCategoryId,
-                                image_url: imgRes.data.url,
-                                title: this.formData.title,
-                                prompts: this.formData.prompts,
-                                tags: this.formData.tags
-                            }]);
-                            if (error) throw error;
-                            await this.fetchInspirations();
-                            this.closeModal();
-                        } else throw new Error(imgRes.error.message);
-                    } catch (e) {
-                        alert("保存失败了 T_T 原因: " + e.message);
-                    } finally { this.isUploading = false; }
-                }
-            }
-        }).mount('#app');
-    </script>
-</body>
-</html>
+        <div v-if="showUploadModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+            <div class="
