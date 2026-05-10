@@ -34,15 +34,21 @@
         
         <div class="text-[10px] tracking-widest text-[#9FA2A6] mb-6 uppercase font-sans">Collection</div>
         
-        <ul class="space-y-4 flex-1 overflow-y-auto">
-            <li v-for="cat in categories" :key="cat.id">
+        <ul class="space-y-4 flex-1 overflow-y-auto pr-2">
+            <li v-for="cat in categories" :key="cat.id" class="relative group">
                 <a href="#" @click.prevent="currentCategoryId = cat.id" 
-                   class="group flex items-end gap-2 py-1 transition-all">
-                    <span :class="['text-sm transition-colors', currentCategoryId === cat.id ? 'text-gray-900 border-b border-[#F8CCDB]' : 'text-gray-500 group-hover:text-gray-800']">
+                   class="flex items-end gap-2 py-1 transition-all w-[90%]">
+                    <span :class="['text-sm transition-colors truncate', currentCategoryId === cat.id ? 'text-gray-900 border-b border-[#F8CCDB]' : 'text-gray-500 group-hover:text-gray-800']">
                         {{ cat.name }}
                     </span>
                     <span class="text-[10px] text-[#9FA2A6] italic font-serif opacity-50 mb-0.5">/ Class</span>
                 </a>
+                
+                <button @click.stop="deleteCategory(cat.id, cat.name)" 
+                        class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-[#E5D5D9] hover:text-red-400 transition-all text-xs" 
+                        title="删除该分类">
+                    ✕
+                </button>
             </li>
             
             <li class="pt-8">
@@ -271,6 +277,30 @@
                         this.currentCategoryId = data[0].id;
                     }
                 },
+                
+                // 新增：删除分类的方法
+                async deleteCategory(id, name) {
+                    if (!confirm(`确定要删除分类“${name}”吗？\n注意：如果该分类下还有图片，需要先删掉图片才能删除哦！`)) return;
+                    try {
+                        const { error } = await supabaseClient.from('categories').delete().eq('id', id);
+                        if (error) {
+                            // 捕捉外键约束错误 (有图片未删除)
+                            if (error.code === '23503') {
+                                throw new Error("请先删除或移走该分类下的所有图片！");
+                            }
+                            throw error;
+                        }
+                        
+                        // 删除成功后更新本地列表
+                        this.categories = this.categories.filter(c => c.id !== id);
+                        if (this.currentCategoryId === id) {
+                            this.currentCategoryId = this.categories.length > 0 ? this.categories[0].id : null;
+                        }
+                    } catch (err) {
+                        alert("删除失败：" + err.message);
+                    }
+                },
+
                 handleFileSelect(e) { this.selectedFile = e.target.files[0]; },
                 closeUploadModal() {
                     this.showUploadModal = false;
