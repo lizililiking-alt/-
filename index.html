@@ -68,4 +68,292 @@
         </div>
 
         <div v-if="showUploadModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div class="
+            <div class="bg-white w-[550px] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div class="flex justify-between items-center px-8 py-6 border-b border-gray-50">
+                    <h2 class="text-xl font-serif">新增记录 <span class="text-[10px] mocha-gray ml-2 uppercase font-sans">Add Entry</span></h2>
+                    <button @click="closeUploadModal" class="text-gray-300 hover:text-gray-600 text-2xl transition-colors">✕</button>
+                </div>
+                
+                <div class="p-8 space-y-6">
+                    <div @click="$refs.fileInput.click()" class="border-2 border-dashed border-[#DFE3E2] bg-[#FEFDF8] h-48 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[#F8CCDB] transition-colors group">
+                        <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept="image/*">
+                        <div v-if="!selectedFile" class="text-center">
+                            <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">☁️</div>
+                            <p class="text-xs mocha-gray">点击上传图片 / Click to upload</p>
+                        </div>
+                        <div v-else class="text-center px-4">
+                            <p class="text-xs text-[#F8CCDB] font-bold truncate">{{ selectedFile.name }}</p>
+                            <p class="text-[10px] mocha-gray mt-1">点击可更换图片</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="border-b border-gray-100 py-1">
+                            <label class="text-[10px] mocha-gray block mb-1">标题 TITLE</label>
+                            <input v-model="formData.title" type="text" class="w-full outline-none text-sm font-serif">
+                        </div>
+                        <div class="border-b border-gray-100 py-1">
+                            <label class="text-[10px] mocha-gray block mb-1">提示词内容 PROMPTS</label>
+                            <textarea v-model="formData.prompts" rows="3" class="w-full outline-none text-sm resize-none"></textarea>
+                        </div>
+                        <div class="border-b border-gray-100 py-1">
+                            <label class="text-[10px] mocha-gray block mb-1">标签 TAGS</label>
+                            <input v-model="formData.tags" type="text" placeholder="用逗号分隔..." class="w-full outline-none text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-8 py-6 bg-gray-50 flex justify-end items-center gap-6">
+                    <button @click="closeUploadModal" class="text-xs mocha-gray hover:text-gray-800 transition-colors">取消 CANCEL</button>
+                    <button @click="uploadAndSave" :disabled="isUploading" class="mocha-pink px-10 py-3 rounded-full text-sm font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all">
+                        {{ isUploading ? '保存中...' : '保存记录 SAVE' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="selectedItem" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+            <div class="bg-[#FDFBF7] w-[850px] max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
+                
+                <div class="flex justify-between items-center px-8 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-serif">详细信息 <span class="text-[10px] mocha-gray ml-2 uppercase font-sans tracking-widest">Detail View</span></h2>
+                    <div class="flex items-center gap-4">
+                        <button v-if="!isEditingItem" @click="startEdit" class="text-xs border border-gray-300 px-3 py-1 rounded hover:bg-gray-100 transition-colors">
+                            📝 编辑 / EDIT
+                        </button>
+                        <button @click="closeDetails" class="text-gray-400 hover:text-gray-800 text-xl transition-colors">✕</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-1 overflow-y-auto p-8 gap-8">
+                    <div class="w-1/2 flex items-start justify-center">
+                        <img :src="selectedItem.image_url" class="max-w-full rounded-lg shadow-md object-contain max-h-[60vh]">
+                    </div>
+
+                    <div class="w-1/2 flex flex-col">
+                        
+                        <div v-if="!isEditingItem" class="flex-1">
+                            <h1 class="text-3xl font-serif mb-4">{{ selectedItem.title || '未命名' }}</h1>
+                            <div v-if="selectedItem.tags" class="mb-6">
+                                <span class="inline-block text-[10px] border border-gray-300 px-3 py-1 rounded-full text-gray-600">{{ selectedItem.tags }}</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-end mb-2">
+                                <label class="text-[10px] mocha-gray uppercase tracking-widest">提示词正文 PROMPTS</label>
+                                <button @click="copyPrompts" class="border border-gray-200 p-1.5 rounded hover:bg-gray-100 transition-colors" title="复制提示词">
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                </button>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-100 p-4 rounded text-sm text-gray-700 min-h-[150px] whitespace-pre-wrap leading-relaxed">
+                                {{ selectedItem.prompts || '暂无提示词内容。' }}
+                            </div>
+                        </div>
+
+                        <div v-else class="flex-1 space-y-4">
+                            <div>
+                                <label class="text-[10px] mocha-gray block mb-1">标题 TITLE</label>
+                                <input v-model="editFormData.title" type="text" class="w-full border border-gray-200 p-2 rounded text-sm outline-none focus:border-[#F8CCDB]">
+                            </div>
+                            <div>
+                                <label class="text-[10px] mocha-gray block mb-1">标签 TAGS (逗号分隔)</label>
+                                <input v-model="editFormData.tags" type="text" class="w-full border border-gray-200 p-2 rounded text-sm outline-none focus:border-[#F8CCDB]">
+                            </div>
+                            <div class="flex-1">
+                                <label class="text-[10px] mocha-gray block mb-1">提示词 PROMPTS</label>
+                                <textarea v-model="editFormData.prompts" rows="6" class="w-full border border-gray-200 p-2 rounded text-sm outline-none focus:border-[#F8CCDB] resize-none"></textarea>
+                            </div>
+                            
+                            <div class="flex justify-end gap-4 pt-4">
+                                <button @click="cancelEdit" class="text-xs mocha-gray hover:text-gray-800">取消</button>
+                                <button @click="saveEdit" class="mocha-pink px-6 py-2 rounded text-sm font-bold shadow hover:shadow-md transition-all">保存修改</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="px-8 py-4 border-t border-gray-200 flex justify-between items-center bg-[#F7F5F0]">
+                    <button @click="deleteItem(selectedItem.id)" class="text-xs text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        删除 / Delete
+                    </button>
+                    <span class="text-[10px] mocha-gray tracking-widest uppercase">ID: {{ selectedItem.id }}</span>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ================= 🔑 密钥已自动填入 =================
+        const SUPABASE_URL = 'https://nmjbxokiljbhmzwpwqxe.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_1ajuVZe4-fpjmIW_ShceWQ__yVdj6aN';
+        const IMGBB_KEY = '445eddb50c646ffdca04c354c185bbc9';
+        // ==========================================================
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        Vue.createApp({
+            data() {
+                return {
+                    categories: [],
+                    currentCategoryId: null,
+                    inspirations: [],
+                    isAddingCategory: false,
+                    newCategoryName: '',
+                    searchQuery: '',
+                    
+                    // 新增记录相关
+                    showUploadModal: false,
+                    selectedFile: null,
+                    isUploading: false,
+                    formData: { title: '', prompts: '', tags: '' },
+
+                    // 详情与编辑相关
+                    selectedItem: null,
+                    isEditingItem: false,
+                    editFormData: {}
+                }
+            },
+            computed: {
+                filteredInspirations() {
+                    let items = this.inspirations.filter(i => i.category_id === this.currentCategoryId);
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        items = items.filter(i => (i.title && i.title.toLowerCase().includes(q)) || (i.prompts && i.prompts.toLowerCase().includes(q)));
+                    }
+                    return items;
+                }
+            },
+            async mounted() {
+                await this.fetchCategories();
+                await this.fetchInspirations();
+            },
+            methods: {
+                // ---- 数据获取 ----
+                async fetchCategories() {
+                    const { data } = await supabaseClient.from('categories').select('*').order('id');
+                    if (data) {
+                        this.categories = data;
+                        if (!this.currentCategoryId && data.length > 0) this.currentCategoryId = data[0].id;
+                    }
+                },
+                async fetchInspirations() {
+                    const { data } = await supabaseClient.from('inspirations').select('*').order('created_at', { ascending: false });
+                    if (data) this.inspirations = data;
+                },
+                async addCategory() {
+                    if (!this.newCategoryName.trim()) return;
+                    const { data, error } = await supabaseClient.from('categories').insert([{ name: this.newCategoryName }]).select();
+                    if (error) alert("分类添加失败: " + error.message);
+                    else {
+                        this.categories.push(data[0]);
+                        this.newCategoryName = '';
+                        this.isAddingCategory = false;
+                        this.currentCategoryId = data[0].id;
+                    }
+                },
+
+                // ---- 上传弹窗逻辑 ----
+                handleFileSelect(e) { this.selectedFile = e.target.files[0]; },
+                closeUploadModal() {
+                    this.showUploadModal = false;
+                    this.selectedFile = null;
+                    this.formData = { title: '', prompts: '', tags: '' };
+                },
+                async uploadAndSave() {
+                    if (!this.selectedFile) return alert("请先上传一张图片哦！");
+                    this.isUploading = true;
+                    try {
+                        const body = new FormData();
+                        body.append('image', this.selectedFile);
+                        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body });
+                        const imgRes = await res.json();
+                        
+                        if (imgRes.success) {
+                            const { error } = await supabaseClient.from('inspirations').insert([{
+                                category_id: this.currentCategoryId,
+                                image_url: imgRes.data.url,
+                                title: this.formData.title,
+                                prompts: this.formData.prompts,
+                                tags: this.formData.tags
+                            }]);
+                            if (error) throw error;
+                            await this.fetchInspirations();
+                            this.closeUploadModal();
+                        } else throw new Error(imgRes.error.message);
+                    } catch (e) {
+                        alert("保存失败了 T_T 原因: " + e.message);
+                    } finally { this.isUploading = false; }
+                },
+
+                // ---- 详情、编辑与删除逻辑 (新增) ----
+                viewDetails(item) {
+                    this.selectedItem = item;
+                    this.isEditingItem = false;
+                },
+                closeDetails() {
+                    this.selectedItem = null;
+                    this.isEditingItem = false;
+                },
+                startEdit() {
+                    // 把当前数据复制到编辑表单中
+                    this.editFormData = { ...this.selectedItem };
+                    this.isEditingItem = true;
+                },
+                cancelEdit() {
+                    this.isEditingItem = false;
+                },
+                async saveEdit() {
+                    try {
+                        const { error } = await supabaseClient
+                            .from('inspirations')
+                            .update({
+                                title: this.editFormData.title,
+                                prompts: this.editFormData.prompts,
+                                tags: this.editFormData.tags
+                            })
+                            .eq('id', this.selectedItem.id);
+                            
+                        if (error) throw error;
+                        
+                        // 更新成功后，刷新列表数据并退出编辑模式
+                        await this.fetchInspirations();
+                        // 同步更新当前查看的详情数据
+                        this.selectedItem = { ...this.selectedItem, ...this.editFormData };
+                        this.isEditingItem = false;
+                        
+                    } catch (error) {
+                        alert("修改失败：" + error.message);
+                    }
+                },
+                async deleteItem(id) {
+                    if (!confirm("确定要删除这条灵感记录吗？删除后无法恢复哦！")) return;
+                    
+                    try {
+                        const { error } = await supabaseClient.from('inspirations').delete().eq('id', id);
+                        if (error) throw error;
+                        
+                        // 删除成功后，关闭弹窗并刷新列表
+                        this.closeDetails();
+                        await this.fetchInspirations();
+                    } catch (error) {
+                        alert("删除失败：" + error.message);
+                    }
+                },
+                // 复制提示词到剪贴板
+                async copyPrompts() {
+                    if (!this.selectedItem.prompts) return alert("没有提示词可以复制哦~");
+                    try {
+                        await navigator.clipboard.writeText(this.selectedItem.prompts);
+                        alert("已成功复制提示词！");
+                    } catch (err) {
+                        alert("复制失败，请尝试手动选中复制。");
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
