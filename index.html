@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的灵感画廊</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Noto Serif SC', serif; background-color: #FEFDF8; color: #3c4043; }
+        .pink-bg { background-color: #F8CCDB; }
+        .pink-text { color: #F8CCDB; }
+        .gray-text { color: #9FA2A6; }
+        .border-pink { border-color: #F8CCDB; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden" id="app">
+
+    <aside class="w-64 bg-[#FEFDF8] border-r border-gray-200 flex flex-col p-6 shadow-sm z-10">
+        <h1 class="text-3xl font-bold mb-10 tracking-widest text-gray-800">灵感库</h1>
+        <div class="text-sm gray-text mb-4">COLLECTION</div>
+        <ul class="space-y-3 flex-1 overflow-y-auto">
+            <li v-for="cat in categories" :key="cat.id">
+                <a href="#" @click.prevent="currentCategoryId = cat.id" 
+                   :class="['block px-3 py-2 rounded-md transition-colors', currentCategoryId === cat.id ? 'pink-bg text-gray-800 font-bold' : 'hover:bg-gray-100 text-gray-600']">
+                    {{ cat.name }}
+                </a>
+            </li>
+            <li class="pt-4 border-t border-gray-200 mt-4">
+                <input v-if="isAddingCategory" v-model="newCategoryName" @keyup.enter="addCategory" placeholder="输入名称回车" class="w-full px-2 py-1 border border-pink rounded text-sm outline-none">
+                <a v-else href="#" @click.prevent="isAddingCategory = true" class="block px-3 py-2 text-sm text-gray-400 hover:text-gray-800 transition-colors">+ 添加新分类</a>
+            </li>
+        </ul>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f5f5f5] relative">
+        <header class="h-20 px-8 flex justify-between items-center bg-white shadow-sm z-10">
+            <div class="flex items-center w-1/3">
+                <input v-model="searchQuery" type="text" placeholder="搜索标题或提示词..." class="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:border-pink-300 text-sm">
+            </div>
+            <button @click="showUploadModal = true" class="pink-bg text-gray-800 px-6 py-2 rounded-full hover:opacity-80 transition-opacity font-bold text-sm tracking-wide shadow">
+                导入图像
+            </button>
+        </header>
+
+        <div class="flex-1 p-8 overflow-y-auto">
+            <div v-if="filteredInspirations.length === 0" class="h-full flex flex-col items-center justify-center gray-text">
+                <p class="text-xl mb-2">暂无数据记录</p>
+                <p class="text-sm">点击右上角 "导入图像" 来添加灵感</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div v-for="item in filteredInspirations" :key="item.id" class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <img :src="item.image_url" class="w-full h-48 object-cover border-b border-gray-100">
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-800 truncate">{{ item.title || '未命名' }}</h3>
+                        <p class="text-xs gray-text mt-1 truncate">{{ item.prompts || '暂无提示词' }}</p>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            <span v-if="item.tags" class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500">{{ item.tags }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showUploadModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white w-[600px] rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h2 class="text-lg font-bold">新增记录 <span class="text-sm gray-text italic font-sans">Add Entry</span></h2>
+                    <button @click="showUploadModal = false" class="text-gray-400 hover:text-gray-800">✕</button>
+                </div>
+                
+                <div class="p-6 overflow-y-auto">
+                    <div class="border-2 border-dashed border-gray-300 bg-gray-50 rounded-lg h-48 flex flex-col items-center justify-center mb-6 relative hover:border-pink-300 transition-colors cursor-pointer">
+                        <input type="file" @change="handleFileSelect" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*">
+                        <span v-if="!selectedFile" class="gray-text flex flex-col items-center">
+                            <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            点击上传图片
+                        </span>
+                        <span v-else class="pink-text font-bold">已选择图片：{{ selectedFile.name }}</span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs gray-text mb-1">标题 TITLE</label>
+                            <input v-model="formData.title" type="text" placeholder="例如：赛博朋克城市 / Elysia" class="w-full bg-gray-50 border border-gray-200 px-3 py-2 outline-none focus:border-pink-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs gray-text mb-1">提示词内容 PROMPTS</label>
+                            <textarea v-model="formData.prompts" rows="3" placeholder="在此输入需要保存的提示词段落..." class="w-full bg-gray-50 border border-gray-200 px-3 py-2 outline-none focus:border-pink-300 rounded text-sm resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs gray-text mb-1">标签 TAGS</label>
+                            <input v-model="formData.tags" type="text" placeholder="用逗号分隔，例如：原神, 壁纸" class="w-full bg-gray-50 border border-gray-200 px-3 py-2 outline-none focus:border-pink-300 rounded text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t border-gray-100 flex justify-end gap-4 bg-gray-50 rounded-b-xl">
+                    <button @click="showUploadModal = false" class="text-sm gray-text hover:text-gray-800">取消 CANCEL</button>
+                    <button @click="uploadAndSave" :disabled="isUploading" :class="['px-6 py-2 bg-gray-800 text-white rounded shadow text-sm transition-opacity', isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700']">
+                        {{ isUploading ? '保存中...' : '保存记录 SAVE' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ================= 请在这里填入你的三把钥匙 =================
+        const SUPABASE_URL = 'sb_publishable_1ajuVZe4-fpjmIW_ShceWQ__yVdj6aN';
+        const SUPABASE_KEY = 'https://nmjbxokiljbhmzwpwqxe.supabase.co/rest/v1/';
+        const IMGBB_KEY = '445eddb50c646ffdca04c354c185bbc9';
+        // ==========================================================
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const app = Vue.createApp({
+            data() {
+                return {
+                    categories: [],
+                    currentCategoryId: null,
+                    inspirations: [],
+                    isAddingCategory: false,
+                    newCategoryName: '',
+                    searchQuery: '',
+                    showUploadModal: false,
+                    selectedFile: null,
+                    isUploading: false,
+                    formData: { title: '', prompts: '', tags: '' }
+                }
+            },
+            computed: {
+                filteredInspirations() {
+                    let filtered = this.inspirations.filter(item => item.category_id === this.currentCategoryId);
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        filtered = filtered.filter(item => 
+                            (item.title && item.title.toLowerCase().includes(q)) || 
+                            (item.prompts && item.prompts.toLowerCase().includes(q))
+                        );
+                    }
+                    return filtered;
+                }
+            },
+            async mounted() {
+                await this.fetchCategories();
+                if(this.categories.length > 0) {
+                    this.currentCategoryId = this.categories[0].id;
+                }
+                await this.fetchInspirations();
+            },
+            methods: {
+                async fetchCategories() {
+                    const { data } = await supabase.from('categories').select('*').order('id');
+                    if (data) this.categories = data;
+                },
+                async fetchInspirations() {
+                    const { data } = await supabase.from('inspirations').select('*').order('created_at', { ascending: false });
+                    if (data) this.inspirations = data;
+                },
+                async addCategory() {
+                    if (!this.newCategoryName.trim()) return;
+                    const { data } = await supabase.from('categories').insert([{ name: this.newCategoryName.trim() }]).select();
+                    if (data) {
+                        this.categories.push(data[0]);
+                        this.newCategoryName = '';
+                        this.isAddingCategory = false;
+                        this.currentCategoryId = data[0].id;
+                    }
+                },
+                handleFileSelect(event) {
+                    this.selectedFile = event.target.files[0];
+                },
+                async uploadAndSave() {
+                    if (!this.selectedFile) {
+                        alert("请先选择一张图片！");
+                        return;
+                    }
+                    this.isUploading = true;
+                    try {
+                        // 1. 上传图片到 ImgBB
+                        const formData = new FormData();
+                        formData.append('image', this.selectedFile);
+                        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const imgData = await imgbbResponse.json();
+                        
+                        if (imgData.success) {
+                            const imageUrl = imgData.data.url;
+                            // 2. 将数据存入 Supabase
+                            const { error } = await supabase.from('inspirations').insert([{
+                                category_id: this.currentCategoryId,
+                                image_url: imageUrl,
+                                title: this.formData.title,
+                                prompts: this.formData.prompts,
+                                tags: this.formData.tags
+                            }]);
+                            
+                            if (error) throw error;
+                            
+                            // 3. 成功后清理表单并刷新数据
+                            this.showUploadModal = false;
+                            this.selectedFile = null;
+                            this.formData = { title: '', prompts: '', tags: '' };
+                            await this.fetchInspirations();
+                        } else {
+                            alert("图片上传失败：" + imgData.error.message);
+                        }
+                    } catch (error) {
+                        alert("发生错误：" + error.message);
+                    } finally {
+                        this.isUploading = false;
+                    }
+                }
+            }
+        });
+        app.mount('#app');
+    </script>
+</body>
+</html>
