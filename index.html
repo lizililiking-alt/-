@@ -3,193 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的私人灵感画廊</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <title>Pink Muse. 私人灵感画廊</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 全局基础字体和主体背景 (非常淡的淡粉色) */
-        body { font-family: 'Noto Serif SC', serif; background-color: #FFF5F8; color: #3c4043; }
+        /* 高级极简背景底色 */
+        body { font-family: 'Noto Serif SC', serif; background-color: #FCF9FA; color: #3c4043; }
         
         /* 核心粉色调变量 */
         .pink-dominant { color: #F8CCDB; }
         .pink-bg { background-color: #F8CCDB; }
-        .border-pink { border-color: #F8CCDB; }
         
-        /* 针对宋体优化的大气排版 */
-        h1, h2, h3, .font-serif { font-family: 'Noto Serif SC', serif; letter-spacing: 0.05em; }
+        /* 优雅的排版 */
+        .font-serif { font-family: 'Noto Serif SC', serif; letter-spacing: 0.05em; }
         
-        /* 自定义滚动条 - 换成更淡的粉色 */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #FFD9E6; border-radius: 4px; }
+        /* 极简细滚动条 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #E5D5D9; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #F8CCDB; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden" id="app">
 
-    <aside class="w-64 bg-[#FDF2F4] border-r border-[#FFD9E6] flex flex-col p-8 z-10 shadow-inner">
-        <h1 class="text-3xl font-bold mb-12 text-gray-800">灵感库</h1>
-        <div class="text-[10px] tracking-widest text-[#F8CCDB] mb-6 uppercase">Collection / 分类</div>
+    <aside class="w-64 bg-[#FAF5F6] border-r border-[#F0E6E8] flex flex-col pt-12 pb-8 px-8 z-10">
+        <div class="mb-16">
+            <h1 class="text-3xl font-serif text-gray-800 leading-tight tracking-wider">PINK<br>MUSE.</h1>
+        </div>
+        
+        <div class="text-[10px] tracking-widest text-[#9FA2A6] mb-6 uppercase font-sans">Collection</div>
+        
         <ul class="space-y-4 flex-1 overflow-y-auto">
             <li v-for="cat in categories" :key="cat.id">
                 <a href="#" @click.prevent="currentCategoryId = cat.id" 
-                   :class="['block py-1 transition-all border-b-2', currentCategoryId === cat.id ? 'border-[#F8CCDB] text-gray-900 font-bold' : 'border-transparent text-gray-400 hover:text-gray-600']">
-                    {{ cat.name }}
+                   class="group flex items-end gap-2 py-1 transition-all">
+                    <span :class="['text-sm transition-colors', currentCategoryId === cat.id ? 'text-gray-900 border-b border-[#F8CCDB]' : 'text-gray-500 group-hover:text-gray-800']">
+                        {{ cat.name }}
+                    </span>
+                    <span class="text-[10px] text-[#9FA2A6] italic font-serif opacity-50 mb-0.5">/ Class</span>
                 </a>
             </li>
-            <li class="pt-6">
-                <div v-if="isAddingCategory" class="flex items-center border-b-2 border-[#F8CCDB]">
-                    <input v-model="newCategoryName" @keyup.enter="addCategory" placeholder="新分类名称..." class="w-full bg-transparent py-1 text-sm outline-none">
+            
+            <li class="pt-8">
+                <div v-if="isAddingCategory" class="flex items-center border-b border-[#F8CCDB]">
+                    <input v-model="newCategoryName" @keyup.enter="addCategory" placeholder="输入名称回车..." class="w-full bg-transparent py-1 text-xs outline-none text-gray-600">
                 </div>
-                <a v-else href="#" @click.prevent="isAddingCategory = true" class="text-xs text-[#F8CCDB] hover:text-[#FFB3CD] transition-colors">+ 添加新分类 / Add</a>
+                <a v-else href="#" @click.prevent="isAddingCategory = true" class="text-[10px] text-[#9FA2A6] hover:text-[#F8CCDB] transition-colors uppercase tracking-widest">+ 添加分类 / Add</a>
             </li>
         </ul>
     </aside>
 
-    <main class="flex-1 flex flex-col relative bg-white">
-        <header class="h-20 px-10 flex justify-between items-center border-b border-[#FFD9E6]">
-            <div class="w-64">
-                <input v-model="searchQuery" type="text" placeholder="搜索关键词..." class="w-full bg-[#FFF0F5] px-4 py-2 rounded-full text-xs outline-none focus:ring-1 focus:ring-[#F8CCDB]">
-            </div>
-            <button @click="showUploadModal = true" class="pink-bg text-white px-8 py-2 rounded-full hover:shadow-lg transition-all font-bold text-sm">
-                导入图像
-            </button>
-        </header>
-
-        <div class="flex-1 p-10 overflow-y-auto bg-[#FFF9FA]">
-            <div v-if="filteredInspirations.length === 0" class="h-full flex flex-col items-center justify-center text-[#FFD9E6]">
-                <p class="text-xl font-serif">暂无灵感记录</p>
-                <p class="text-[10px] mt-2 tracking-widest">NO ENTRIES FOUND</p>
+    <main class="flex-1 flex flex-col relative bg-[#FCF9FA]">
+        <header class="h-24 px-10 flex justify-between items-center border-b border-[#F0E6E8]">
+            <div class="flex items-end gap-4">
+                <h2 class="text-2xl font-serif text-gray-800">{{ currentCategoryName || '全部' }}</h2>
+                <span class="text-xs text-[#9FA2A6] italic font-serif mb-1 uppercase tracking-widest">
+                    Archive / {{ String(filteredInspirations.length).padStart(3, '0') }} Items
+                </span>
             </div>
             
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
-                <div v-for="item in filteredInspirations" :key="item.id" class="group cursor-pointer" @click="viewDetails(item)">
-                    <div class="aspect-[4/3] overflow-hidden rounded-xl mb-4 shadow group-hover:shadow-xl border-4 border-white transition-all">
-                        <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+            <div class="flex items-center gap-6">
+                <div class="w-48">
+                    <input v-model="searchQuery" type="text" placeholder="搜索..." class="w-full bg-transparent border-b border-gray-200 py-1 text-xs outline-none focus:border-[#F8CCDB] transition-colors text-gray-600 placeholder-gray-300">
+                </div>
+                <button @click="showUploadModal = true" class="border border-gray-200 text-gray-600 px-6 py-1.5 rounded-sm hover:border-[#F8CCDB] hover:text-[#F8CCDB] transition-all text-xs tracking-widest bg-white">
+                    导入图像
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 p-10 overflow-y-auto">
+            <div v-if="filteredInspirations.length === 0" class="h-full flex flex-col items-center justify-center text-[#9FA2A6] opacity-50">
+                <p class="text-lg font-serif tracking-widest">暂无数据记录</p>
+                <p class="text-[10px] mt-2 tracking-widest uppercase font-sans">No entries found. Click "导入图像" to add.</p>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-10">
+                <div v-for="item in filteredInspirations" :key="item.id" class="group cursor-pointer flex flex-col" @click="viewDetails(item)">
+                    <div class="aspect-square overflow-hidden rounded-md mb-3 bg-[#FAF5F6] shadow-sm group-hover:shadow-md transition-all relative">
+                        <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-95 group-hover:opacity-100">
                     </div>
-                    <h3 class="font-serif font-bold text-gray-800 truncate">{{ item.title || '未命名' }}</h3>
-                    <p class="text-[10px] text-gray-400 mt-1 line-clamp-2">{{ item.prompts || '暂无提示词内容。' }}</p>
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-serif text-sm text-gray-800 truncate pr-2">{{ item.title || 'Untitled' }}</h3>
+                        <span class="text-[9px] text-[#9FA2A6] opacity-0 group-hover:opacity-100 transition-opacity">查看</span>
+                    </div>
+                    <p class="text-[10px] text-[#9FA2A6] mt-0.5 truncate">{{ item.prompts || '...' }}</p>
                 </div>
             </div>
         </div>
 
-        <div v-if="showUploadModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
-            <div class="bg-white w-[550px] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-                <div class="flex justify-between items-center px-8 py-6 border-b border-gray-100">
-                    <h2 class="text-xl font-serif">新增灵感 <span class="text-[10px] text-[#F8CCDB] ml-2 uppercase font-sans tracking-widest">Add Entry</span></h2>
-                    <button @click="closeUploadModal" class="text-gray-300 hover:text-gray-600 text-2xl transition-colors">✕</button>
+        <div v-if="showUploadModal" class="fixed inset-0 bg-black/10 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+            <div class="bg-[#FCF9FA] w-[500px] rounded-lg shadow-2xl overflow-hidden border border-[#F0E6E8]">
+                <div class="flex justify-between items-center px-8 py-5 border-b border-[#F0E6E8] bg-white">
+                    <h2 class="text-lg font-serif text-gray-800">新增记录 <span class="text-[10px] text-[#9FA2A6] italic ml-2 font-serif">Add Entry</span></h2>
+                    <button @click="closeUploadModal" class="text-gray-300 hover:text-gray-600 text-xl transition-colors">✕</button>
                 </div>
                 
-                <div class="p-8 space-y-6">
-                    <div @click="$refs.fileInput.click()" class="border-2 border-dashed border-[#FFD9E6] bg-[#FFF9FA] h-48 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[#F8CCDB] transition-colors group">
+                <div class="p-8 space-y-5">
+                    <div @click="$refs.fileInput.click()" class="border border-dashed border-[#E5D5D9] bg-[#FAF5F6] h-40 rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-[#F8CCDB] hover:bg-white transition-all group">
                         <input type="file" ref="fileInput" @change="handleFileSelect" class="hidden" accept="image/*">
                         <div v-if="!selectedFile" class="text-center">
-                            <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">🌸</div>
-                            <p class="text-xs text-gray-400">点击上传图片 / Click to upload</p>
+                            <svg class="w-6 h-6 mx-auto mb-2 text-[#9FA2A6] group-hover:text-[#F8CCDB] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            <p class="text-[10px] text-[#9FA2A6] uppercase tracking-widest">点击上传 (Click to upload)</p>
                         </div>
                         <div v-else class="text-center px-4">
-                            <p class="text-xs pink-dominant font-bold truncate">{{ selectedFile.name }}</p>
-                            <p class="text-[10px] text-gray-300 mt-1">点击更换</p>
+                            <p class="text-xs text-[#F8CCDB] font-bold truncate">{{ selectedFile.name }}</p>
                         </div>
                     </div>
 
                     <div class="space-y-4">
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] text-gray-300 block mb-1">标题 TITLE</label>
-                            <input v-model="formData.title" type="text" class="w-full outline-none text-sm font-serif">
+                        <div>
+                            <label class="text-[9px] text-[#9FA2A6] uppercase tracking-widest block mb-1">标题 TITLE</label>
+                            <input v-model="formData.title" type="text" placeholder="例如: 赛博朋克 / Elysia" class="w-full bg-white border border-[#F0E6E8] p-2 text-sm outline-none focus:border-[#F8CCDB] rounded-sm">
                         </div>
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] text-gray-300 block mb-1">提示词内容 PROMPTS</label>
-                            <textarea v-model="formData.prompts" rows="3" class="w-full outline-none text-sm resize-none"></textarea>
-                        </div>
-                        <div class="border-b border-gray-100 py-1">
-                            <label class="text-[10px] text-gray-300 block mb-1">标签 TAGS (用逗号分隔)</label>
-                            <input v-model="formData.tags" type="text" class="w-full outline-none text-sm">
+                        <div>
+                            <label class="text-[9px] text-[#9FA2A6] uppercase tracking-widest block mb-1">提示词内容 PROMPTS</label>
+                            <textarea v-model="formData.prompts" rows="3" placeholder="在此输入需要保存的提示词..." class="w-full bg-white border border-[#F0E6E8] p-2 text-sm outline-none focus:border-[#F8CCDB] rounded-sm resize-none"></textarea>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-8 py-6 bg-[#FFF9FA] flex justify-end items-center gap-6 rounded-b-2xl">
-                    <button @click="closeUploadModal" class="text-xs text-gray-400 hover:text-gray-800 transition-colors">取消 CANCEL</button>
-                    <button @click="uploadAndSave" :disabled="isUploading" class="pink-bg text-white px-10 py-3 rounded-full text-sm font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all">
+                <div class="px-8 py-5 bg-white border-t border-[#F0E6E8] flex justify-end items-center gap-4">
+                    <button @click="closeUploadModal" class="text-xs text-[#9FA2A6] hover:text-gray-800">取消 CANCEL</button>
+                    <button @click="uploadAndSave" :disabled="isUploading" class="bg-gray-800 text-white px-8 py-2 rounded-sm text-xs tracking-widest disabled:opacity-50 hover:bg-black transition-all">
                         {{ isUploading ? '保存中...' : '保存记录 SAVE' }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <div v-if="selectedItem" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
-            <div class="bg-white w-[850px] max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
+        <div v-if="selectedItem" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+            <div class="bg-[#FCF9FA] w-[800px] max-h-[85vh] rounded-lg shadow-2xl overflow-hidden flex flex-col border border-[#F0E6E8]">
                 
-                <div class="flex justify-between items-center px-8 py-4 border-b border-[#FFD9E6]">
-                    <h2 class="text-lg font-serif">灵感详情 <span class="text-[10px] text-[#F8CCDB] ml-2 uppercase font-sans tracking-widest">Detail View</span></h2>
+                <div class="flex justify-between items-center px-8 py-5 bg-white border-b border-[#F0E6E8]">
+                    <h2 class="text-lg font-serif text-gray-800">详细信息 <span class="text-[10px] text-[#9FA2A6] italic ml-2 font-serif">Detail View</span></h2>
                     <div class="flex items-center gap-4">
-                        <button v-if="!isEditingItem" @click="startEdit" class="text-xs border border-[#FFD9E6] px-3 py-1 rounded-full text-[#F8CCDB] hover:bg-[#FFF9FA] transition-colors">
-                            📝 编辑 / EDIT
+                        <button v-if="!isEditingItem" @click="startEdit" class="text-[10px] border border-gray-200 px-3 py-1 rounded-sm text-gray-600 hover:border-[#F8CCDB] hover:text-[#F8CCDB] transition-all tracking-widest flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            编辑 / EDIT
                         </button>
-                        <button @click="closeDetails" class="text-gray-300 hover:text-gray-800 text-xl transition-colors">✕</button>
+                        <button @click="closeDetails" class="text-gray-300 hover:text-gray-600 text-xl transition-colors leading-none">✕</button>
                     </div>
                 </div>
 
                 <div class="flex flex-1 overflow-y-auto p-8 gap-8">
-                    <div class="w-1/2 flex items-start justify-center p-4 bg-[#FFF9FA] rounded-lg">
-                        <img :src="selectedItem.image_url" class="max-w-full rounded-lg shadow-lg object-contain max-h-[60vh] border-4 border-white">
+                    <div class="w-1/2 flex items-start justify-center">
+                        <img :src="selectedItem.image_url" class="max-w-full rounded-md shadow-sm object-contain max-h-[60vh]">
                     </div>
 
                     <div class="w-1/2 flex flex-col">
-                        
                         <div v-if="!isEditingItem" class="flex-1">
-                            <h1 class="text-3xl font-serif mb-4">{{ selectedItem.title || '未命名' }}</h1>
-                            <div v-if="selectedItem.tags" class="mb-6">
-                                <span class="inline-block text-[10px] bg-[#FDF2F4] border border-[#FFD9E6] px-3 py-1 rounded-full text-[#F8CCDB]">{{ selectedItem.tags }}</span>
+                            <h1 class="text-2xl font-serif mb-4 text-gray-800">{{ selectedItem.title || '未命名' }}</h1>
+                            <div class="inline-block border border-[#E5D5D9] px-3 py-0.5 rounded-full mb-8">
+                                <span class="text-[10px] text-gray-500">{{ selectedCategoryName || '未分类' }}</span>
                             </div>
                             
                             <div class="flex justify-between items-end mb-2">
-                                <label class="text-[10px] text-gray-300 uppercase tracking-widest">提示词正文 PROMPTS</label>
-                                <button @click="copyPrompts" class="border border-[#FFD9E6] p-1.5 rounded-lg hover:bg-[#FFF9FA] transition-colors" title="复制提示词">
-                                    <svg class="w-4 h-4 text-[#F8CCDB]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                <label class="text-[9px] text-[#9FA2A6] uppercase tracking-widest">提示词正文 PROMPTS</label>
+                                <button @click="copyPrompts" class="text-[#9FA2A6] hover:text-[#F8CCDB] transition-colors" title="复制提示词">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                 </button>
                             </div>
-                            <div class="bg-[#FFF9FA] border border-[#FFD9E6] p-4 rounded-xl text-sm text-gray-700 min-h-[150px] whitespace-pre-wrap leading-relaxed">
-                                {{ selectedItem.prompts || '暂无提示词内容。' }}
+                            <div class="bg-white border border-[#F0E6E8] p-4 rounded-sm text-xs text-gray-600 min-h-[150px] whitespace-pre-wrap leading-relaxed shadow-inner">
+                                {{ selectedItem.prompts || '暂无提示词。' }}
                             </div>
                         </div>
 
-                        <div v-else class="flex-1 space-y-4 animate-in fade-in duration-300">
+                        <div v-else class="flex-1 space-y-4">
                             <div>
-                                <label class="text-[10px] text-gray-300 block mb-1">标题 TITLE</label>
-                                <input v-model="editFormData.title" type="text" class="w-full border-b-2 border-[#FFD9E6] p-1 rounded text-sm outline-none focus:border-[#F8CCDB]">
+                                <label class="text-[9px] text-[#9FA2A6] uppercase tracking-widest block mb-1">标题 TITLE</label>
+                                <input v-model="editFormData.title" type="text" class="w-full border-b border-gray-200 py-1 text-sm outline-none focus:border-[#F8CCDB] bg-transparent">
                             </div>
-                            <div>
-                                <label class="text-[10px] text-gray-300 block mb-1">标签 TAGS (逗号分隔)</label>
-                                <input v-model="editFormData.tags" type="text" class="w-full border-b-2 border-[#FFD9E6] p-1 rounded text-sm outline-none focus:border-[#F8CCDB]">
+                            <div class="flex-1 pt-4">
+                                <label class="text-[9px] text-[#9FA2A6] uppercase tracking-widest block mb-2">提示词 PROMPTS</label>
+                                <textarea v-model="editFormData.prompts" rows="8" class="w-full bg-white border border-[#F0E6E8] p-3 rounded-sm text-xs outline-none focus:border-[#F8CCDB] resize-none"></textarea>
                             </div>
-                            <div class="flex-1">
-                                <label class="text-[10px] text-gray-300 block mb-1">提示词 PROMPTS</label>
-                                <textarea v-model="editFormData.prompts" rows="6" class="w-full bg-[#FFF9FA] border border-[#FFD9E6] p-3 rounded-lg text-sm outline-none focus:border-[#F8CCDB] resize-none"></textarea>
-                            </div>
-                            
-                            <div class="flex justify-end gap-4 pt-4">
-                                <button @click="cancelEdit" class="text-xs text-gray-400 hover:text-gray-800">取消</button>
-                                <button @click="saveEdit" class="pink-bg text-white px-6 py-2 rounded text-sm font-bold shadow hover:shadow-md transition-all">保存修改</button>
+                            <div class="flex justify-end gap-4 pt-2">
+                                <button @click="cancelEdit" class="text-xs text-[#9FA2A6] hover:text-gray-800">取消</button>
+                                <button @click="saveEdit" class="bg-gray-800 text-white px-6 py-1.5 rounded-sm text-xs tracking-widest hover:bg-black transition-all">保存修改</button>
                             </div>
                         </div>
-
                     </div>
                 </div>
 
-                <div class="px-8 py-4 border-t border-[#FFD9E6] flex justify-between items-center bg-[#FFF9FA]">
-                    <button @click="deleteItem(selectedItem.id)" class="text-xs text-red-300 hover:text-red-500 transition-colors flex items-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        删除记录 / Delete
+                <div class="px-8 py-4 bg-white border-t border-[#F0E6E8] flex justify-between items-center">
+                    <button @click="deleteItem(selectedItem.id)" class="text-[10px] text-red-400 hover:text-red-600 transition-colors flex items-center gap-1 tracking-widest uppercase">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        删除 / Delete
                     </button>
-                    <span class="text-[10px] text-[#F8CCDB] tracking-widest uppercase">ID: {{ selectedItem.id }}</span>
+                    <span class="text-[9px] text-[#9FA2A6] tracking-widest uppercase">ID: {{ selectedItem.id }}</span>
                 </div>
-
             </div>
         </div>
-
     </main>
 
     <script>
@@ -210,14 +216,10 @@
                     isAddingCategory: false,
                     newCategoryName: '',
                     searchQuery: '',
-                    
-                    // 新增记录相关
                     showUploadModal: false,
                     selectedFile: null,
                     isUploading: false,
                     formData: { title: '', prompts: '', tags: '' },
-
-                    // 详情与编辑相关
                     selectedItem: null,
                     isEditingItem: false,
                     editFormData: {}
@@ -231,6 +233,15 @@
                         items = items.filter(i => (i.title && i.title.toLowerCase().includes(q)) || (i.prompts && i.prompts.toLowerCase().includes(q)));
                     }
                     return items;
+                },
+                currentCategoryName() {
+                    const cat = this.categories.find(c => c.id === this.currentCategoryId);
+                    return cat ? cat.name : '';
+                },
+                selectedCategoryName() {
+                    if (!this.selectedItem) return '';
+                    const cat = this.categories.find(c => c.id === this.selectedItem.category_id);
+                    return cat ? cat.name : '';
                 }
             },
             async mounted() {
@@ -238,7 +249,6 @@
                 await this.fetchInspirations();
             },
             methods: {
-                // ---- 数据获取 ----
                 async fetchCategories() {
                     const { data } = await supabaseClient.from('categories').select('*').order('id');
                     if (data) {
@@ -261,8 +271,6 @@
                         this.currentCategoryId = data[0].id;
                     }
                 },
-
-                // ---- 上传弹窗逻辑 ----
                 handleFileSelect(e) { this.selectedFile = e.target.files[0]; },
                 closeUploadModal() {
                     this.showUploadModal = false;
@@ -294,8 +302,6 @@
                         alert("保存失败了 T_T 原因: " + e.message);
                     } finally { this.isUploading = false; }
                 },
-
-                // ---- 详情、编辑与删除逻辑 ----
                 viewDetails(item) {
                     this.selectedItem = item;
                     this.isEditingItem = false;
@@ -333,12 +339,10 @@
                     }
                 },
                 async deleteItem(id) {
-                    if (!confirm("确定要删除这条灵感记录吗？删除后无法恢复哦！")) return;
-                    
+                    if (!confirm("确定要删除这条记录吗？")) return;
                     try {
                         const { error } = await supabaseClient.from('inspirations').delete().eq('id', id);
                         if (error) throw error;
-                        
                         this.closeDetails();
                         await this.fetchInspirations();
                     } catch (error) {
@@ -349,7 +353,7 @@
                     if (!this.selectedItem.prompts) return alert("没有提示词可以复制哦~");
                     try {
                         await navigator.clipboard.writeText(this.selectedItem.prompts);
-                        alert("已复制提示词！🌸");
+                        alert("已成功复制提示词！");
                     } catch (err) {
                         alert("复制失败，请手动选中复制。");
                     }
